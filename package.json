@@ -1,0 +1,19 @@
+{
+  "name": "scrape-pdf",
+  "type": "module",
+  "version": "1.0.0",
+  "description": "",
+  "main": "dist/scrape_pdf.js",
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "devDependencies": {
+    "@playwright/test": "^1.31.2",
+    "@types/node": "^18.15.5",
+    "source-map-support": "^0.5.21",
+    "typescript": "^5.0.2"
+  },
+  "scripts": {
+    "scrape_pdf": "tsc && node dist/scrape_pdf.js"
+  }
+}
