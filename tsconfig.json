@@ -17,11 +17,5 @@
         "sourceMap": true,
         "noEmit": false,
         "outDir": "dist"
-    },
-    "include": [
-        "./scrape_pdf.mts"
-    ],
-    "exclude": [
-        "node_modules"
-    ]
+    }
 }

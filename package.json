@@ -14,6 +14,7 @@
     "typescript": "^5.0.2"
   },
   "scripts": {
+    "preinstall": "npx only-allow pnpm",
     "scrape_pdf": "tsc && node dist/scrape_pdf.js"
   }
 }
