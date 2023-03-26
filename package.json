@@ -8,7 +8,10 @@
   "license": "ISC",
   "devDependencies": {
     "@playwright/test": "^1.31.2",
+    "@types/crawler": "^1.2.2",
     "@types/node": "^18.15.5",
+    "crawler": "^1.4.0",
+    "pdf-merger-js": "^4.3.0",
     "typescript": "^5.0.2"
   },
   "scripts": {
