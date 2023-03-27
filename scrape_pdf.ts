@@ -18,7 +18,6 @@ export interface ICLIArguments {
                 defaultOption: true
             },
             dryRun: {
-                typeLabel: "dry-run",
                 type: Boolean,
                 alias: 'd',
                 description: "Navigate through the web graph and print the paths to console without converting the pages to PDFs",
@@ -49,7 +48,6 @@ export interface ICLIArguments {
         }
 
         try {
-
             const limit = limiter(5);
             const visitedUrls: UrlSet = new Set();
             const processQueue: ProcessQueue = {

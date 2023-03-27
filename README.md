@@ -12,7 +12,7 @@ You'll see some console output, and then should have an `output` directory full 
 ## CLI Options
 | Full | Short | Description |
 |--|--|--|
-| `--dry-run` | `-d` | Perform the web crawl without creating PDFs |
+| `--dryRun` | `-d` | Perform the web crawl without creating PDFs |
 | `--verbose` | `-v` | Adds additional logging |
 
 # TODO

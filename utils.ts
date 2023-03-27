@@ -97,7 +97,6 @@ const savePdfFile = async (page: Page, url: string) => {
     // https://playwright.dev/docs/api/class-page#page-pdf
     await page.emulateMedia({ media: 'screen' });
     const pdfBuffer = await page.pdf({ path: `${pdfPath}` });
-    // TODO: Make async
     await fs.writeFile(pdfPath, pdfBuffer);
     console.log(`Saved PDF: ${pdfPath}`);
 }
