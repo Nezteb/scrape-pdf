@@ -2,7 +2,7 @@
   "name": "scrape-pdf",
   "version": "1.0.0",
   "description": "",
-  "main": "dist/scrape_pdf.js",
+  "main": "scrape_pdf.ts",
   "keywords": [],
   "author": "",
   "license": "ISC",
@@ -14,6 +14,10 @@
   },
   "scripts": {
     "preinstall": "npx only-allow pnpm",
-    "scrape_pdf": "tsc && node dist/scrape_pdf.js"
+    "scrape": "ts-node ./scrape_pdf.ts"
+  },
+  "dependencies": {
+    "ts-command-line-args": "^2.4.2",
+    "ts-node": "^10.9.1"
   }
 }
