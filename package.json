@@ -8,9 +8,11 @@
   "license": "ISC",
   "devDependencies": {
     "@types/node": "^18.15.5",
+    "typescript": "^5.0.2"
+  },
+  "dependencies": {
     "pdf-merger-js": "^4.3.0",
     "playwright": "^1.32.1",
-    "typescript": "^5.0.2",
     "ts-command-line-args": "^2.4.2",
     "ts-node": "^10.9.1"
   },
