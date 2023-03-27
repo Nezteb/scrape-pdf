@@ -97,8 +97,22 @@ const savePdfFile = async (page: Page, url: string, withHeader: boolean, media: 
     // https://playwright.dev/docs/api/class-page#page-emulate-media
     await page.emulateMedia({ media: media as Media, colorScheme: colorScheme as ColorScheme });
 
+    // TODO: Headers are kinda broken, figure out CSS and page margin
+    const headerTemplate = `
+    <span style="font-size: 10px" class="date"></span>
+    <span style="font-size: 10px"> | </span>
+    <span style="font-size: 10px" class="title"></span>
+    `
+    const footerTemplate = `
+    <span style="font-size: 10px" class="url"></span>
+    <span style="font-size: 10px"> | </span>
+    <span style="font-size: 10px" class="pageNumber"></span>
+    <span style="font-size: 10px">/</span>
+    <span style="font-size: 10px" class="totalPages"></span>
+    `
+
     // https://playwright.dev/docs/api/class-page#page-pdf
-    await page.pdf({ path: `${pdfPath}`, displayHeaderFooter: withHeader});
+    await page.pdf({ path: `${pdfPath}`, displayHeaderFooter: withHeader, headerTemplate, footerTemplate});
     console.log(`Saved PDF: ${pdfPath}`);
 }
 
