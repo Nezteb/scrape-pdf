@@ -1,133 +1,118 @@
-import fs from 'fs';
+import fs from 'fs/promises';
+import path from 'path';
 import type { Browser, Page } from "playwright";
+import { LimitFunction } from './limiter';
+import { ICLIArguments } from './scrape_pdf';
 
-export type UrlMap = {
-    [x: string]: boolean
-}
+export type UrlSet = Set<string>;
+export type ProcessQueue = Record<string, Promise<void>>;
 
-const outputDir = "./output";
+// https://github.com/microsoft/playwright/blob/591e4ea9763bb1a81ecf289cc497292917f506ee/packages/playwright-core/src/server/page.ts#L414
+type Media = undefined | null | "screen" | "print";
+type ColorScheme = undefined | null | "light" | "dark" | "no-preference"
 
-const visitPage = async (rootUrl: string, browser: Browser, urlMap: UrlMap, url: string) => {
+export const OUTPUT_DIR = "./output";
+
+const visitPage = async (rootUrl: string, browser: Browser, url: string, dryRun: boolean, withHeader: boolean, media: string, colorScheme: string) => {
     const page = await browser.newPage();
-    await page.goto(url);
 
-    const newUrls = await getCleanUrlsFromPage(rootUrl, urlMap, page);
+    await page.goto(url, { waitUntil: 'domcontentloaded' });
 
-    // const urlsToLog = ["https://beautifulracket.com/", "https://beautifulracket.com/appendix/glossary.html", "https://beautifulracket.com/appendix/thoughts-on-rhombus.html"]
-    // if(urlsToLog.includes(url)) {
-    //     console.log(`Found ${newUrls.length} new URLs: ${JSON.stringify(newUrls, null, 2)}`)
-    // } else {
-    //     console.log(`Found ${newUrls.length} new URLs`)
-    // }
+    const newUrls = await getCleanUrlsFromPage(rootUrl, page);
 
-    // if(newUrls.length > 0) {
-    //     console.log(`Found ${newUrls.length} new URLs: ${JSON.stringify(newUrls, null, 2)}`)
-    // }
+    if (!dryRun) {
+        await savePdfFile(page, url, withHeader, media, colorScheme);
+    }
 
-    await savePdfFile(page, url);
-
-    urlMap[url] = true;
     await page.close();
 
-    newUrls.forEach((url) => {
-        urlMap[url] = false;
-    });
-
-    return urlMap;
+    // Remove duplicates
+    return new Set(newUrls).keys();
 }
 
-const getCleanUrlsFromPage = async (rootUrl: string, urlMap: UrlMap, page: Page) => {
-    const hrefs = await page.evaluate(() => {
-        const links = document.querySelectorAll("[href]");
-        let urls = [];
-        for (const link of links) {
-            let href = link.getAttribute("href")
-            if (href) {
-                href = href.split('#')[0];
-                urls.push(href);
-            }
-        }
-        return urls;
-    })
+const IGNORE_EXTENSIONS = [".jpg", ".jpeg", ".png", ".gif", ".svg", ".css", ".js", ".ico", ".xml", ".json", ".txt", ".md", ".pdf", ".zip"];
+const getCleanUrlsFromPage = async (rootUrl: string, page: Page) => {
+    const allHrefElements = await page.locator('[href]').all();
+    const hrefs: string[] = [];
+    await Promise.all(
+        allHrefElements.map(async locator => {
+            const href = await locator.getAttribute('href');
+            href && hrefs.push(href.split('#')[0]);
+        })
+    );
 
     // Clean up URLs with inconsistent slashes
     // TODO: Refactor URL parsing and filtering to more easily handle file extensions, external URLs, etc.
-    const cleaned_urls = hrefs.map((url: string) => {
-        if (!url.startsWith("http")) {
-            // console.log("URL is path only, adding root URL");
-
-            if (url.startsWith("/")) {
-                url = url.slice(1);
-            }
-            url = `${rootUrl}${url}`;
+    const baseUrl = new URL(rootUrl).origin;
+    return hrefs.reduce((acc: string[], href) => {
+        let url: string;
+        if (href.startsWith("/")) {
+            url = new URL(href.trim(), baseUrl).href
+        } else if (href.startsWith("http")) {
+            url = href.trim();
+        } else {
+            return acc;
         }
 
-        return url;
-    })
-        .filter((url: string) => {
-            // Remove empty URLs
-            if (url.trim() === "") {
-                // console.log(`Ignoring empty URL`);
-                return false;
-            }
+        // Remove empty URLs
+        if (url === "" || url === "/") {
+            return acc;
+        }
 
-            // Remove URLs that aren't HTML pages
-            const ignoreExtensions = [".jpg", ".jpeg", ".png", ".gif", ".svg", ".css", ".js", ".ico", ".xml", ".json", ".txt", ".md", ".pdf", ".zip"];
-            for (const extension of ignoreExtensions) {
-                if (url.endsWith(extension)) {
-                    // console.log(`Ignoring URL because it's an ignored extension: ${url}`);
-                    return false;
-                }
-            }
-            // const validExtensions = [".html", ".htm"];
-            // for (const extension of validExtensions) {
-            //     if (!url.endsWith(extension)) {
-            //         console.log(`Ignoring URL because it's an invalid extension: ${url}`);
-            //         return false;
-            //     }
-            // }
-
-            // Remove URLs that aren't on the same domain
-            if (url.startsWith("http") && !url.startsWith(rootUrl)) {
-                // console.log(`Ignoring URL because it's not on the same domain as the root: ${url}`);
-                return false;
-            }
-
-            return true;
-        })
-
-
-    // Remove duplicates
-    const urlSet = new Set(cleaned_urls);
-
-    // Remove URLs that we already know about
-    for (const url in urlMap) {
-        // console.log(`Deleting URL from set because we already know about it: ${url}`)
-        urlSet.delete(url);
-        // if (urlMap[url]) {
+        // Remove URLs that aren't HTML pages
+        if (IGNORE_EXTENSIONS.includes(path.extname(url))) {
+            return acc;
+        }
+        // const validExtensions = [".html", ".htm"];
+        // for (const extension of validExtensions) {
+        //     if (!url.endsWith(extension)) {
+        //         console.log(`Ignoring URL because it's an invalid extension: ${url}`);
+        //         return false;
+        //     }
         // }
-    }
 
-    return [...urlSet];
+        // Only include URLs that are on the same domain
+        if (!url.startsWith("http") || url.startsWith(rootUrl)) {
+            acc.push(url);
+        }
+        return acc;
+    }, []);
 }
 
-const savePdfFile = async (page: Page, url: string) => {
+const savePdfFile = async (page: Page, url: string, withHeader: boolean, media: string, colorScheme: string) => {
     const lastSlashIndex = nthIndexOf(url, "/", 3);
-    let safeUrl = url.slice(lastSlashIndex);
+
+    let pageTitle = await page.title()
+    pageTitle = pageTitle.replace(/[^a-zA-Z0-9_]/g, "_");
+    pageTitle = pageTitle.replace(/_{2,}/g, "_");
+
+    let safeUrl = url.slice(lastSlashIndex + 1);
     safeUrl = safeUrl.replace(/[^a-zA-Z0-9_]/g, "_");
     safeUrl = safeUrl.replace(/_{2,}/g, "_");
 
-    if (!fs.existsSync(outputDir)) {
-        fs.mkdirSync(outputDir);
-    }
+    const fileName = `${pageTitle}_${safeUrl}.pdf`;
 
-    const pdfPath = `${outputDir}/${safeUrl}.pdf`;
+    const pdfPath = `${OUTPUT_DIR}/${fileName}`;
+
+    // https://playwright.dev/docs/api/class-page#page-emulate-media
+    await page.emulateMedia({ media: media as Media, colorScheme: colorScheme as ColorScheme });
+
+    // TODO: Headers are kinda broken, figure out CSS and page margin
+    const headerTemplate = `
+    <span style="font-size: 10px" class="date"></span>
+    <span style="font-size: 10px"> | </span>
+    <span style="font-size: 10px" class="title"></span>
+    `
+    const footerTemplate = `
+    <span style="font-size: 10px" class="url"></span>
+    <span style="font-size: 10px"> | </span>
+    <span style="font-size: 10px" class="pageNumber"></span>
+    <span style="font-size: 10px">/</span>
+    <span style="font-size: 10px" class="totalPages"></span>
+    `
 
     // https://playwright.dev/docs/api/class-page#page-pdf
-    await page.emulateMedia({ media: 'screen' });
-    const pdfBuffer = await page.pdf({ path: `${pdfPath}` });
-    // TODO: Make async
-    fs.writeFileSync(pdfPath, pdfBuffer);
+    await page.pdf({ path: `${pdfPath}`, displayHeaderFooter: withHeader, headerTemplate, footerTemplate});
     console.log(`Saved PDF: ${pdfPath}`);
 }
 
@@ -142,4 +127,28 @@ const nthIndexOf = (string: string, char: string, nth: number, fromIndex: number
     }
 }
 
-export { visitPage, getCleanUrlsFromPage };
+export const processUrl = async (
+    browser: Browser,
+    rootUrl: string,
+    url: string,
+    visitedUrls: UrlSet,
+    processQueue: ProcessQueue,
+    args: Omit<ICLIArguments, 'rootUrl'>,
+    limit: LimitFunction,
+) => {
+    if (visitedUrls.has(url)) {
+        return;
+    }
+    if (args.verbose) {
+        console.log(`Current step ${url}: ${visitedUrls.size} URLs processed, ${Object.keys(processQueue).length} still in process queue`);
+    }
+    visitedUrls.add(url);
+    const newUrls = await visitPage(rootUrl, browser, url, args.dryRun, args.withHeader, args.media, args.colorScheme);
+    for (const nextUrl of newUrls) {
+        if (!visitedUrls.has(nextUrl)) {
+            processQueue[nextUrl] = limit(() => processUrl(browser, rootUrl, nextUrl, visitedUrls, processQueue, args, limit));
+        }
+    };
+    
+    delete processQueue[url];
+};
