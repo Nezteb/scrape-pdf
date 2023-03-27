@@ -8,6 +8,9 @@ export interface ICLIArguments {
     rootUrl: string;
     dryRun: boolean;
     verbose: boolean;
+    withHeader: boolean;
+    media: string;
+    colorScheme: string;
 }
 
 (async () => {
@@ -28,14 +31,32 @@ export interface ICLIArguments {
                 alias: 'v',
                 description: "Add more logging",
                 defaultValue: false,
+            },
+            withHeader: {
+                type: Boolean,
+                alias: 'h',
+                description: "Generates PDFs with headers and footers",
+                defaultValue: false,
+            },
+            media: {
+                type: String,
+                alias: 'm',
+                description: "Emulate the given media type (if the site supports different media types)",
+                defaultValue: 'print',
+            },
+            colorScheme: {
+                type: String,
+                alias: 'c',
+                description: "Emulate the given color scheme (if the site supports color schemes)",
+                defaultValue: 'no-preference',
             }
         });
 
         
         const { rootUrl, ...args } = passedArgs;
-        console.log(`Root: ${rootUrl}`);
+        console.log(`Root URL: ${rootUrl}`);
         
-        args.dryRun && console.log('-- DRY RUN, NO SAVING PDFS --');
+        args.dryRun && console.log('-- DRY RUN, NOT SAVING PDFS --');
 
         const browser = await chromium.launch({
             headless: true
@@ -74,7 +95,11 @@ export interface ICLIArguments {
     
             const urls = Array.from(visitedUrls.keys());
             const sortedUrls = urls.sort().join('\n');
-            console.log(sortedUrls);
+
+            if (args.verbose) {
+                console.log(sortedUrls);
+                console.log(`Total URLs: ${urls.length}`);
+            }
             await fs.writeFile(`${OUTPUT_DIR}/___urls.txt`, sortedUrls);
         } catch (err) {
             console.error(err);
@@ -82,7 +107,7 @@ export interface ICLIArguments {
             throw err;
         }
         if (args.verbose) {
-            console.log('CLOSING BROWSER');
+            console.log('Closing browser');
         }
         browser.close();
     } catch (e) {

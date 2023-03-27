@@ -7,28 +7,21 @@ import { ICLIArguments } from './scrape_pdf';
 export type UrlSet = Set<string>;
 export type ProcessQueue = Record<string, Promise<void>>;
 
+// https://github.com/microsoft/playwright/blob/591e4ea9763bb1a81ecf289cc497292917f506ee/packages/playwright-core/src/server/page.ts#L414
+type Media = undefined | null | "screen" | "print";
+type ColorScheme = undefined | null | "light" | "dark" | "no-preference"
+
 export const OUTPUT_DIR = "./output";
 
-const visitPage = async (rootUrl: string, browser: Browser, url: string, dryRun: boolean) => {
+const visitPage = async (rootUrl: string, browser: Browser, url: string, dryRun: boolean, withHeader: boolean, media: string, colorScheme: string) => {
     const page = await browser.newPage();
 
     await page.goto(url, { waitUntil: 'domcontentloaded' });
 
     const newUrls = await getCleanUrlsFromPage(rootUrl, page);
 
-    // const urlsToLog = ["https://beautifulracket.com/", "https://beautifulracket.com/appendix/glossary.html", "https://beautifulracket.com/appendix/thoughts-on-rhombus.html"]
-    // if(urlsToLog.includes(url)) {
-    //     console.log(`Found ${newUrls.length} new URLs: ${JSON.stringify(newUrls, null, 2)}`)
-    // } else {
-    //     console.log(`Found ${newUrls.length} new URLs`)
-    // }
-
-    // if(newUrls.length > 0) {
-    //     console.log(`Found ${newUrls.length} new URLs: ${JSON.stringify(newUrls, null, 2)}`)
-    // }
-
     if (!dryRun) {
-        await savePdfFile(page, url);
+        await savePdfFile(page, url, withHeader, media, colorScheme);
     }
 
     await page.close();
@@ -86,18 +79,26 @@ const getCleanUrlsFromPage = async (rootUrl: string, page: Page) => {
     }, []);
 }
 
-const savePdfFile = async (page: Page, url: string) => {
+const savePdfFile = async (page: Page, url: string, withHeader: boolean, media: string, colorScheme: string) => {
     const lastSlashIndex = nthIndexOf(url, "/", 3);
-    let safeUrl = url.slice(lastSlashIndex);
+
+    let pageTitle = await page.title()
+    pageTitle = pageTitle.replace(/[^a-zA-Z0-9_]/g, "_");
+    pageTitle = pageTitle.replace(/_{2,}/g, "_");
+
+    let safeUrl = url.slice(lastSlashIndex + 1);
     safeUrl = safeUrl.replace(/[^a-zA-Z0-9_]/g, "_");
     safeUrl = safeUrl.replace(/_{2,}/g, "_");
 
-    const pdfPath = `${OUTPUT_DIR}/${safeUrl}.pdf`;
+    const fileName = `${pageTitle}_${safeUrl}.pdf`;
+
+    const pdfPath = `${OUTPUT_DIR}/${fileName}`;
+
+    // https://playwright.dev/docs/api/class-page#page-emulate-media
+    await page.emulateMedia({ media: media as Media, colorScheme: colorScheme as ColorScheme });
 
     // https://playwright.dev/docs/api/class-page#page-pdf
-    await page.emulateMedia({ media: 'screen' });
-    const pdfBuffer = await page.pdf({ path: `${pdfPath}` });
-    await fs.writeFile(pdfPath, pdfBuffer);
+    await page.pdf({ path: `${pdfPath}`, displayHeaderFooter: withHeader});
     console.log(`Saved PDF: ${pdfPath}`);
 }
 
@@ -128,7 +129,7 @@ export const processUrl = async (
         console.log(`Current step ${url}: ${visitedUrls.size} URLs processed, ${Object.keys(processQueue).length} still in process queue`);
     }
     visitedUrls.add(url);
-    const newUrls = await visitPage(rootUrl, browser, url, args.dryRun);
+    const newUrls = await visitPage(rootUrl, browser, url, args.dryRun, args.withHeader, args.media, args.colorScheme);
     for (const nextUrl of newUrls) {
         if (!visitedUrls.has(nextUrl)) {
             processQueue[nextUrl] = limit(() => processUrl(browser, rootUrl, nextUrl, visitedUrls, processQueue, args, limit));

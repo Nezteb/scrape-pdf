@@ -12,8 +12,11 @@ You'll see some console output, and then should have an `output` directory full 
 ## CLI Options
 | Full | Short | Description |
 |--|--|--|
-| `--dryRun` | `-d` | Perform the web crawl without creating PDFs |
-| `--verbose` | `-v` | Adds additional logging |
+| `--media` | `-m` | What media type you want to generate PDFs with, if the site supports different media types ("screen" or "print" (default)) |
+| `--colorScheme` | `-c` | What color scheme you want to generate PDFs with, if the site supports color schemes ("light", "dark", "no-preference" (default)) |
+| `--withHeader` | `-h` | Whether or not you want PDFs with generated headers (and footers) (default false) |
+| `--dryRun` | `-d` | Perform the web crawl without creating PDFs (default false) |
+| `--verbose` | `-v` | Adds additional logging (default false) |
 
 # TODO
 
@@ -24,7 +27,3 @@ You'll see some console output, and then should have an `output` directory full 
 - [ ] The ability to also download linked ZIP/PDF files (which are currently ignored)
 - [ ] Darkmode option VIA [Dark Reader](https://playwright.dev/docs/chrome-extensions) extension
 - [ ] Update links in PDFs to refer to other saved files
-
-# Example Output
-
-![](./scrape-pdf-output-demo.gif)
