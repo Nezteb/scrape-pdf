@@ -21,9 +21,10 @@ You'll see some console output, and then should have an `output` directory full 
 # TODO
 
 - [X] A `--dry-run` flag that shows which URLs will be downloaded and what each page's filename will be
+- [X] Asynchronous file download
+- [ ] Figure out how to actually import ESM packages like `p-limit` and `chalk` v5...
 - [ ] A URL whitelist feature that works with globs/regexes
 - [ ] An option to combine all of the resulting PDFs into one
-- [X] Asynchronous file download
 - [ ] The ability to also download linked ZIP/PDF files (which are currently ignored)
 - [ ] Darkmode option VIA [Dark Reader](https://playwright.dev/docs/chrome-extensions) extension
 - [ ] Update links in PDFs to refer to other saved files

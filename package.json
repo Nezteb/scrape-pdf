@@ -11,6 +11,7 @@
     "typescript": "^5.0.2"
   },
   "dependencies": {
+    "chalk": "^4.1.2",
     "pdf-merger-js": "^4.3.0",
     "playwright": "^1.32.1",
     "ts-command-line-args": "^2.4.2",

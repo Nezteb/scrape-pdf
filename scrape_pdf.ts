@@ -2,6 +2,7 @@ import { chromium } from "playwright";
 import { parse } from "ts-command-line-args";
 import { processUrl, ProcessQueue, UrlSet, OUTPUT_DIR } from "./utils";
 import { limiter } from './limiter';
+import chalk from 'chalk';
 import fs from 'fs/promises';
 
 export interface ICLIArguments {
@@ -97,9 +98,9 @@ export interface ICLIArguments {
             const sortedUrls = urls.sort().join('\n');
 
             if (args.verbose) {
-                console.log(sortedUrls);
-                console.log(`Total URLs: ${urls.length}`);
+                console.log(chalk.cyan(sortedUrls));
             }
+            console.log(chalk.green(`Total URLs: ${urls.length}`));
             await fs.writeFile(`${OUTPUT_DIR}/___urls.txt`, sortedUrls);
         } catch (err) {
             console.error(err);
@@ -107,7 +108,7 @@ export interface ICLIArguments {
             throw err;
         }
         if (args.verbose) {
-            console.log('Closing browser');
+            console.log(chalk.cyan('Closing browser'));
         }
         browser.close();
     } catch (e) {

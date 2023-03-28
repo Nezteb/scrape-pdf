@@ -1,7 +1,8 @@
 import fs from 'fs/promises';
 import path from 'path';
+import chalk from 'chalk';
 import type { Browser, Page } from "playwright";
-import { LimitFunction } from './limiter';
+import type { LimitFunction } from "./limiter";
 import { ICLIArguments } from './scrape_pdf';
 
 export type UrlSet = Set<string>;
@@ -13,15 +14,21 @@ type ColorScheme = undefined | null | "light" | "dark" | "no-preference"
 
 export const OUTPUT_DIR = "./output";
 
-const visitPage = async (rootUrl: string, browser: Browser, url: string, dryRun: boolean, withHeader: boolean, media: string, colorScheme: string) => {
+const visitPage = async (rootUrl: string, browser: Browser, url: string, verbose: boolean, dryRun: boolean, withHeader: boolean, media: string, colorScheme: string) => {
     const page = await browser.newPage();
 
-    await page.goto(url, { waitUntil: 'domcontentloaded' });
+    // Some websites will load initial content super quick but then take a while on CSS and assets, so lets wait until network idle
+    try {
+        await page.goto(url, { waitUntil: 'networkidle' });
+    } catch (e) {
+        console.log(chalk.red(`Error navigating to ${url}:\n${e}`));
+        return [];
+    }
 
     const newUrls = await getCleanUrlsFromPage(rootUrl, page);
 
     if (!dryRun) {
-        await savePdfFile(page, url, withHeader, media, colorScheme);
+        await savePdfFile(page, url, verbose, withHeader, media, colorScheme);
     }
 
     await page.close();
@@ -79,7 +86,7 @@ const getCleanUrlsFromPage = async (rootUrl: string, page: Page) => {
     }, []);
 }
 
-const savePdfFile = async (page: Page, url: string, withHeader: boolean, media: string, colorScheme: string) => {
+const savePdfFile = async (page: Page, url: string, verbose: boolean, withHeader: boolean, media: string, colorScheme: string) => {
     const lastSlashIndex = nthIndexOf(url, "/", 3);
 
     let pageTitle = await page.title()
@@ -112,8 +119,14 @@ const savePdfFile = async (page: Page, url: string, withHeader: boolean, media: 
     `
 
     // https://playwright.dev/docs/api/class-page#page-pdf
-    await page.pdf({ path: `${pdfPath}`, displayHeaderFooter: withHeader, headerTemplate, footerTemplate});
-    console.log(`Saved PDF: ${pdfPath}`);
+    try {
+        await page.pdf({ path: `${pdfPath}`, displayHeaderFooter: withHeader, headerTemplate, footerTemplate});
+        if(verbose) {
+            console.log(chalk.cyan(`PDF: ${pdfPath}`));
+        }
+    } catch (e) {
+        console.log(chalk.red(`Error saving PDF: ${pdfPath}\n${e}`));
+    }
 }
 
 const nthIndexOf = (string: string, char: string, nth: number, fromIndex: number = 0): number => {
@@ -140,10 +153,12 @@ export const processUrl = async (
         return;
     }
     if (args.verbose) {
-        console.log(`Current step ${url}: ${visitedUrls.size} URLs processed, ${Object.keys(processQueue).length} still in process queue`);
+        console.log(chalk.green(`URL: ${url}`), chalk.cyan(`(visited: ${visitedUrls.size}, remaining: ${Object.keys(processQueue).length})`));
+    } else {
+        console.log(chalk.green(`URL: ${url}`));
     }
     visitedUrls.add(url);
-    const newUrls = await visitPage(rootUrl, browser, url, args.dryRun, args.withHeader, args.media, args.colorScheme);
+    const newUrls = await visitPage(rootUrl, browser, url, args.verbose, args.dryRun, args.withHeader, args.media, args.colorScheme);
     for (const nextUrl of newUrls) {
         if (!visitedUrls.has(nextUrl)) {
             processQueue[nextUrl] = limit(() => processUrl(browser, rootUrl, nextUrl, visitedUrls, processQueue, args, limit));
