@@ -22,7 +22,12 @@ You'll see some console output, and then should have an `output` directory full 
 
 - [X] A `--dry-run` flag that shows which URLs will be downloaded and what each page's filename will be
 - [X] Asynchronous file download
-- [ ] Figure out how to actually import ESM packages like `p-limit` and `chalk` v5...
+- [ ] Figure out how to actually import and use ESM packages with `ts-node` like `p-limit` and `chalk` v5... `¯\_(ツ)_/¯`
+- [ ] EPUB generation option
+  - https://github.com/danburzo/percollate
+  - https://github.com/alexadam/save-as-ebook
+  - https://pandoc.org/
+    - https://github.com/valexandersaulys/pandoc-wrapper
 - [ ] A URL whitelist feature that works with globs/regexes
 - [ ] An option to combine all of the resulting PDFs into one
 - [ ] The ability to also download linked ZIP/PDF files (which are currently ignored)
